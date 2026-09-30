@@ -32,14 +32,35 @@ extracurricular_val = 1 if extracurricular == "Yes" else 0
 
 predict_clicked = st.sidebar.button("Predict Risk Level")
 
-# ---- MAIN AREA: results appear here ----
+# ---- Store the prediction in session_state so it survives the download button's rerun ----
 if predict_clicked:
     input_data = pd.DataFrame([[attendance, test_score, assignments, study_hours, gpa, extracurricular_val]],
                                 columns=['attendance_percentage', 'avg_test_score', 'assignments_submitted_pct',
                                          'study_hours_per_week', 'previous_semester_gpa', 'extracurricular_participation'])
-    
     prediction = model.predict(input_data)[0]
     
+    st.session_state['prediction'] = prediction
+    st.session_state['student_name'] = student_name
+    st.session_state['student_usn'] = student_usn
+    st.session_state['attendance'] = attendance
+    st.session_state['test_score'] = test_score
+    st.session_state['assignments'] = assignments
+    st.session_state['study_hours'] = study_hours
+    st.session_state['gpa'] = gpa
+    st.session_state['extracurricular'] = extracurricular
+
+# ---- MAIN AREA: show results if a prediction exists in session_state ----
+if 'prediction' in st.session_state:
+    prediction = st.session_state['prediction']
+    student_name = st.session_state['student_name']
+    student_usn = st.session_state['student_usn']
+    attendance = st.session_state['attendance']
+    test_score = st.session_state['test_score']
+    assignments = st.session_state['assignments']
+    study_hours = st.session_state['study_hours']
+    gpa = st.session_state['gpa']
+    extracurricular = st.session_state['extracurricular']
+
     color_map = {"Low": "🟢", "Medium": "🟡", "High": "🔴"}
 
     if student_name and student_usn:
@@ -66,18 +87,18 @@ if predict_clicked:
     }
     st.info(remarks[prediction])
 
-    # ---- Comparison averages (used in both the PDF and the on-screen chart) ----
     avg_values = df[['attendance_percentage', 'avg_test_score', 'assignments_submitted_pct']].mean()
     student_values = [attendance, test_score, assignments]
     labels = ['Attendance %', 'Test Score', 'Assignments %']
 
-    # ---- PDF Report with text + chart ----
-        # ---- PDF Report with text + chart ----
+    # ---- PDF Report with text + chart on ONE page ----
     pdf_buffer = io.BytesIO()
     with PdfPages(pdf_buffer) as pdf:
-        # Page 1: Text details
-        fig_text = plt.figure(figsize=(8.5, 11))
-        fig_text.text(0.1, 0.93, "Student Academic Risk Report", fontsize=20, fontweight='bold')
+        fig = plt.figure(figsize=(8.5, 11))
+
+        text_ax = fig.add_axes([0.1, 0.62, 0.8, 0.3])
+        text_ax.axis('off')
+        text_ax.text(0, 1, "Student Academic Risk Report", fontsize=18, fontweight='bold', va='top')
         details = f"""Student Name: {student_name if student_name else 'N/A'}
 USN: {student_usn if student_usn else 'N/A'}
 
@@ -90,24 +111,21 @@ Extracurricular Participation: {extracurricular}
 
 Predicted Risk Level: {prediction}
 
-Remark:
-{remarks[prediction]}
+Remark: {remarks[prediction]}
 """
-        fig_text.text(0.1, 0.55, details, fontsize=12, va='center')
-        pdf.savefig(fig_text)
-        plt.close(fig_text)
+        text_ax.text(0, 0.8, details, fontsize=11, va='top')
 
-        # Page 2: Comparison chart
-        fig_chart, ax = plt.subplots(figsize=(8.5, 5))
+        chart_ax = fig.add_axes([0.1, 0.08, 0.8, 0.42])
         x = range(3)
-        ax.bar([i - 0.2 for i in x], student_values, width=0.4, label='This Student', color='#3498db')
-        ax.bar([i + 0.2 for i in x], avg_values.values, width=0.4, label='Dataset Average', color='#95a5a6')
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels)
-        ax.set_title("Student vs Dataset Average")
-        ax.legend()
-        pdf.savefig(fig_chart)
-        plt.close(fig_chart)
+        chart_ax.bar([i - 0.2 for i in x], student_values, width=0.4, label='This Student', color='#3498db')
+        chart_ax.bar([i + 0.2 for i in x], avg_values.values, width=0.4, label='Dataset Average', color='#95a5a6')
+        chart_ax.set_xticks(x)
+        chart_ax.set_xticklabels(labels)
+        chart_ax.set_title("Student vs Dataset Average")
+        chart_ax.legend()
+
+        pdf.savefig(fig)
+        plt.close(fig)
 
     pdf_buffer.seek(0)
 
@@ -117,3 +135,15 @@ Remark:
         file_name=f"risk_report_{student_usn if student_usn else 'student'}.pdf",
         mime="application/pdf"
     )
+
+    # ---- On-screen comparison chart ----
+    st.subheader("How this student compares to dataset averages")
+
+    fig2, ax2 = plt.subplots(figsize=(7, 4))
+    x = range(3)
+    ax2.bar([i - 0.2 for i in x], student_values, width=0.4, label='This Student', color='#3498db')
+    ax2.bar([i + 0.2 for i in x], avg_values.values, width=0.4, label='Dataset Average', color='#95a5a6')
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(labels)
+    ax2.legend()
+    st.pyplot(fig2)
