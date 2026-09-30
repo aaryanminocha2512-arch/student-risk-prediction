@@ -92,13 +92,18 @@ if 'prediction' in st.session_state:
     labels = ['Attendance %', 'Test Score', 'Assignments %']
 
     # ---- PDF Report with text + chart on ONE page ----
+        # ---- PDF Report with text + chart on ONE page ----
+    from matplotlib.gridspec import GridSpec
+
     pdf_buffer = io.BytesIO()
     with PdfPages(pdf_buffer) as pdf:
         fig = plt.figure(figsize=(8.5, 11))
+        gs = GridSpec(2, 1, height_ratios=[1, 1.3], hspace=0.4, top=0.95, bottom=0.05, left=0.1, right=0.9)
 
-        text_ax = fig.add_axes([0.1, 0.62, 0.8, 0.3])
+        # Top: text details
+        text_ax = fig.add_subplot(gs[0])
         text_ax.axis('off')
-        text_ax.text(0, 1, "Student Academic Risk Report", fontsize=18, fontweight='bold', va='top')
+        text_ax.text(0, 1.0, "Student Academic Risk Report", fontsize=18, fontweight='bold', va='top', transform=text_ax.transAxes)
         details = f"""Student Name: {student_name if student_name else 'N/A'}
 USN: {student_usn if student_usn else 'N/A'}
 
@@ -113,9 +118,10 @@ Predicted Risk Level: {prediction}
 
 Remark: {remarks[prediction]}
 """
-        text_ax.text(0, 0.8, details, fontsize=11, va='top')
+        text_ax.text(0, 0.85, details, fontsize=10.5, va='top', transform=text_ax.transAxes)
 
-        chart_ax = fig.add_axes([0.1, 0.08, 0.8, 0.42])
+        # Bottom: chart
+        chart_ax = fig.add_subplot(gs[1])
         x = range(3)
         chart_ax.bar([i - 0.2 for i in x], student_values, width=0.4, label='This Student', color='#3498db')
         chart_ax.bar([i + 0.2 for i in x], avg_values.values, width=0.4, label='Dataset Average', color='#95a5a6')
@@ -126,24 +132,3 @@ Remark: {remarks[prediction]}
 
         pdf.savefig(fig)
         plt.close(fig)
-
-    pdf_buffer.seek(0)
-
-    st.download_button(
-        label="📥 Download Report (PDF)",
-        data=pdf_buffer,
-        file_name=f"risk_report_{student_usn if student_usn else 'student'}.pdf",
-        mime="application/pdf"
-    )
-
-    # ---- On-screen comparison chart ----
-    st.subheader("How this student compares to dataset averages")
-
-    fig2, ax2 = plt.subplots(figsize=(7, 4))
-    x = range(3)
-    ax2.bar([i - 0.2 for i in x], student_values, width=0.4, label='This Student', color='#3498db')
-    ax2.bar([i + 0.2 for i in x], avg_values.values, width=0.4, label='Dataset Average', color='#95a5a6')
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(labels)
-    ax2.legend()
-    st.pyplot(fig2)
