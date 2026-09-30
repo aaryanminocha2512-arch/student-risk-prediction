@@ -72,6 +72,7 @@ if predict_clicked:
     labels = ['Attendance %', 'Test Score', 'Assignments %']
 
     # ---- PDF Report with text + chart ----
+        # ---- PDF Report with text + chart ----
     pdf_buffer = io.BytesIO()
     with PdfPages(pdf_buffer) as pdf:
         # Page 1: Text details
@@ -116,15 +117,3 @@ Remark:
         file_name=f"risk_report_{student_usn if student_usn else 'student'}.pdf",
         mime="application/pdf"
     )
-    
-    # ---- On-screen comparison chart ----
-    st.subheader("How this student compares to dataset averages")
-    
-    fig, ax = plt.subplots(figsize=(7, 4))
-    x = range(3)
-    ax.bar([i - 0.2 for i in x], student_values, width=0.4, label='This Student', color='#3498db')
-    ax.bar([i + 0.2 for i in x], avg_values.values, width=0.4, label='Dataset Average', color='#95a5a6')
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.legend()
-    st.pyplot(fig)
